@@ -34,8 +34,19 @@ const seed: EventItem[] = [
   { id: 'EVT-2041', service: 'Auth Service', message: 'Login success rate returned to normal', severity: 'Info', status: 'Resolved', time: '23 min ago', latency: 118 },
 ];
 
-const seedMetrics = [180, 195, 172, 225, 210, 285, 245, 310, 270, 235, 205, 188]
-  .map((latency, i) => ({ time: `09:${String(i * 5).padStart(2, '0')}`, latency }));
+const seedMetrics = Array.from({ length: 36 }, (_, i) => {
+  const timestamp = Date.now() - (35 - i) * 5 * 60 * 1000;
+  const latencies = [180, 195, 172, 225, 210, 285, 245, 310, 270, 235, 205, 188];
+
+  return {
+    timestamp,
+    time: new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+    latency: latencies[i % latencies.length],
+  };
+});
 
 const serviceData = [
   { name: 'API Gateway', uptime: '99.98% uptime', initials: 'AG', color: 'blue', status: 'Operational', description: 'Routes requests to the correct services.' },
@@ -92,13 +103,21 @@ export default function App() {
       };
 
       setEvents(old => [event, ...old].slice(0, 20));
-      setMetrics(old => [
-        ...old.slice(1),
-        {
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          latency: event.latency,
-        },
-      ]);
+      setMetrics(old => {
+  const timestamp = Date.now();
+
+  return [
+    ...old.slice(1),
+    {
+      timestamp,
+      time: new Date(timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      latency: event.latency,
+    },
+  ];
+});
     }, 8000);
 
     return () => window.clearInterval(timer);
@@ -121,7 +140,22 @@ export default function App() {
     [events, query, severity, statusFilter, showResolved]
   );
 
-  const avg = Math.round(metrics.reduce((sum, metric) => sum + metric.latency, 0) / metrics.length);
+  const rangeMinutes =
+  timeRange === 'Last 15 min' ? 15 :
+  timeRange === 'Last 30 min' ? 30 :
+  timeRange === 'Last 60 min' ? 60 : 180;
+
+const chartMetrics = useMemo(() => {
+  const cutoff = Date.now() - rangeMinutes * 60 * 1000;
+  return metrics.filter(metric => metric.timestamp >= cutoff);
+}, [metrics, rangeMinutes]);
+
+const avg = chartMetrics.length
+  ? Math.round(
+      chartMetrics.reduce((sum, metric) => sum + metric.latency, 0) /
+      chartMetrics.length
+    )
+  : 0;
   const warnings = events.filter(event => event.severity === 'Warning' && event.status !== 'Resolved').length;
   const critical = events.filter(event => event.severity === 'Critical' && event.status !== 'Resolved').length;
 
@@ -344,7 +378,7 @@ function updateEvent(event: EventItem, next: Status) {
                   <div className="legend"><i /> Latency <span>Milliseconds (ms)</span></div>
                   <div className="chart" role="img" aria-label="Area chart of recent simulated response time in milliseconds">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={metrics} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+                      <AreaChart data={chartMetrics} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
                         <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8b80ff" stopOpacity={0.25} /><stop offset="95%" stopColor="#8b80ff" stopOpacity={0.01} /></linearGradient></defs>
                         <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#283142" />
                         <XAxis dataKey="time" tick={{ fill: '#8792a6', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={25} />
