@@ -1,0 +1,4 @@
+import {describe,it,expect} from 'vitest';
+function filter(items:{service:string;message:string;severity:string}[],query:string,severity:string){return items.filter(x=>(!query||`${x.service} ${x.message}`.toLowerCase().includes(query.toLowerCase()))&&(severity==='All'||x.severity===severity))}
+const data=[{service:'API Gateway',message:'Latency detected',severity:'Warning'},{service:'Payments',message:'Timeout recovered',severity:'Critical'}];
+describe('event filtering',()=>{it('searches case-insensitively',()=>expect(filter(data,'api','All')).toHaveLength(1));it('filters by severity',()=>expect(filter(data,'','Critical')).toHaveLength(1));it('combines query and severity',()=>expect(filter(data,'latency','Warning')).toHaveLength(1));it('returns no matches when none fit',()=>expect(filter(data,'missing','All')).toHaveLength(0))});
